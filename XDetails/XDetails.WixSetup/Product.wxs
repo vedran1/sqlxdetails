@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Wix Tutoriali:
+	http://www.merlinia.com/mdt/WiXTutorial2.msl
+	http://www.tramontana.co.hu/wix/lesson2.php#2.3
+	
+	Kad radiš novu verziju:
+		- promijeni verziju u AssemblyInfo.cs od XDetails.SQLnnnn projekta
+		- podigni VersionNumber ovdje
+		- skompajliraj Release verziju (ne Debug!): dobiti ces samo dll-ove
+		- obfusciraj (Crypto Obfuscator) dobivene dll-ove koji ce se pojaviti u WixSetup mapi
+		- PROVJERI dll-ove Reflector-om da li su dobro kriptirani
+		- WixSetup project buildaj u release verziji
+	To je sve!
+	
+	Upute Mladena Prajdića:
+		Ovo je sve sto ti treba za pravilan upgrade:
+		$(var.UpgradeCode) je UVIJEK isti guid koji se ne mijenja.
+		<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+		  <Product Id="*" Name="SSMS Tools Pack $(var.VersionNumber)" Language="1033" Version="$(var.VersionNumber)" Manufacturer="Mladen Prajdic" UpgradeCode="$(var.UpgradeCode)">
+			<Package InstallerVersion="300" Compressed="yes" InstallScope="perMachine" />
+			<Upgrade Id="$(var.UpgradeCode)">
+			  <UpgradeVersion OnlyDetect="yes" Minimum="$(var.VersionNumber)" IncludeMinimum="no" Property="NEWER_VERSION_FOUND" />
+			  <UpgradeVersion Minimum="0.0.0.0" IncludeMinimum="yes" Maximum="$(var.VersionNumber)" IncludeMaximum="no" Property="OLDER_VERSION_FOUND" />
+			</Upgrade>
+		OTHER STUFF LIKE COMPONENSTS AND FEATURES
+		  </Product>
+		</Wix>
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+	<?define UpgradeCode = "843aa619-2dff-4dca-ac3c-36026d6107f9" ?>
+	<?define VersionNumber = "2.0.0.0" ?>
+
+	<?define Addin2008_CLSID = "{651A0134-15F1-40c2-9816-F24A204882FE}" ?>
+	<?define Addin2008_ProgID="XDetails2008" ?> 
+	<?define Addin2008_RegKey="Software\Microsoft\Microsoft SQL Server\100\Tools\Shell\AddIns\$(var.Addin2008_ProgID)" ?> 
+
+	<?define Addin2005_CLSID = "{135714F3-5EA1-4a65-9819-F07723B87A6B}" ?>
+	<?define Addin2005_ProgID="XDetails2005" ?> 
+	<?define Addin2005_RegKey="Software\Microsoft\Microsoft SQL Server\90\Tools\Shell\AddIns\$(var.Addin2005_ProgID)" ?> 
+
+	<?define Addin2005E_CLSID = "{63635F9E-22D3-4ee7-AC50-F7E0B9E9333F}" ?>
+	<?define Addin2005E_ProgID="XDetails2005Express" ?> 
+	<?define Addin2005E_RegKey="Software\Microsoft\Microsoft SQL Server\90\Tools\ShellSEM\AddIns\$(var.Addin2005E_ProgID)" ?>
+
+	<?define Addin2012_CLSID = "{1E5BF956-490F-45DF-9E8C-0EE411D83255}" ?>
+	<?define Addin2012_ProgID="XDetails2012" ?>
+	<!-- registry ne diraš za sql2012, nego ides preko xml datoteke! <?define Addin2012_RegKey="Software\Microsoft\Microsoft SQL Server\90\Tools\ShellSEM\AddIns\$(var.Addin2005E_ProgID)" ?>
+	Pogledaj si kako koristiti varijable da istu wxs datoteku koristiš za release i debug (lopri):
+	http://stackoverflow.com/questions/1682252/wix-define-a-file-component-that-may-not-exist
+	-->
+
+	<Product 
+		Id="*"
+		Name="SQL XDetails $(var.VersionNumber)" 
+		Version="$(var.VersionNumber)" 
+		Language="1033" 
+		Manufacturer="Vedran Kesegic" 
+		UpgradeCode="$(var.UpgradeCode)"
+	>
+
+		<Package
+			InstallerVersion="200" 
+			Compressed="yes"
+			InstallScope="perMachine"
+			Description="SQL XDetails - brings you details about your SQL Server database objects" 
+			Comments="SQL XDetails - Addin for SQL Server Management Studio" 
+		/>
+
+		<Upgrade Id="$(var.UpgradeCode)">
+			<UpgradeVersion OnlyDetect="yes" Minimum="$(var.VersionNumber)" IncludeMinimum="no" Property="NEWER_VERSION_FOUND" />
+			<UpgradeVersion Minimum="0.0.0.0" IncludeMinimum="yes" Maximum="$(var.VersionNumber)" IncludeMaximum="no" Property="OLDER_VERSION_FOUND" />
+		</Upgrade>
+
+		<InstallExecuteSequence>
+			<RemoveExistingProducts After="InstallInitialize"/>
+		</InstallExecuteSequence>
+
+		<Condition Message="A later version of [ProductName] is already installed. Setup will now exit.">
+			NOT NEWER_VERSION_FOUND
+		</Condition>
+
+		<Property Id="S2012">
+			<RegistrySearch Id="ssms2012"
+				Root="HKLM" Key="Software\Microsoft\Microsoft SQL Server\110\Tools\ClientSetup"
+				Name="Path" Type="raw" />
+		</Property>
+		<Property Id="S2008">
+			<RegistrySearch Id="ssms2008"
+				Root="HKLM" Key="Software\Microsoft\Microsoft SQL Server\100\Tools\Shell"
+				Name="InstallDir" Type="raw" />
+		</Property>
+		<Property Id="S2005">
+			<RegistrySearch Id="ssms2005"
+				Root="HKLM" Key="Software\Microsoft\Microsoft SQL Server\90\Tools\Shell"
+				Name="InstallDir" Type="raw" />
+		</Property>
+		<Property Id="S2005E">
+			<RegistrySearch Id="ssms2005e"
+				Root="HKLM" Key="Software\Microsoft\Microsoft SQL Server\90\Tools\ShellSEM"
+				Name="InstallDir" Type="raw" />
+		</Property>
+
+		<!-- Postavlja EXTENSIBILITYDLLEXISTS na true ako postoji Extensibility.dll negdje u GAC-u -->
+		<Property Id="EXTENSIBILITYDLLEXISTS" >
+			<DirectorySearch Id="AssemblyDirectorySearch" Path="[WindowsFolder]\assembly" Depth="5">
+				<FileSearch Name="Extensibility.dll" MinVersion="7.0.0.0" />
+			</DirectorySearch>
+		</Property>
+
+		<!-- Bez ovoga ne mozes kasnije koristiti WIX_DIR_COMMON_DOCUMENTS specijalnu mapu -->
+		<PropertyRef Id="WIX_DIR_COMMON_DOCUMENTS"/>
+
+		<Media Id="1" Cabinet="Product.cab" EmbedCab="yes" CompressionLevel="high" />
+
+		<Directory Id="TARGETDIR" Name="SourceDir">
+
+			<Directory Id="WIX_DIR_COMMON_DOCUMENTS"> <!-- Na WIN7 to je "C:\Users\Public\Documents\" -->
+				<Directory Id="PublicDocuments_Microsoft" Name="Microsoft">
+					<Directory Id="PublicDocuments_Microsoft_MSEnvShared" Name="MSEnvShared">
+						<Directory Id="PublicDocuments_Microsoft_MSEnvShared_AddIns" Name="AddIns">
+							<Component Id="Component_addin2012" Guid="D0788B9C-1891-41EB-BF56-B0EA6DC74FFF">
+								<File Id="File_addin2012" Name="XDetails.addin" DiskId="1" Vital="yes"
+									Source="..\XDetails.SQL2012\XDetails.addin" />
+								<util:XmlFile Id="ModifyFriendlyName" Action="setValue" File="[PublicDocuments_Microsoft_MSEnvShared_AddIns]\XDetails.addin"
+									ElementPath="/Extensibility/Addin/FriendlyName" Value="SQL XDetails $(var.VersionNumber)" />
+								<util:XmlFile Id="ModifyAssembly" Action="setValue" File="[PublicDocuments_Microsoft_MSEnvShared_AddIns]\XDetails.addin"
+									ElementPath="/Extensibility/Addin/Assembly" Value="[#File_2012Dll]" />
+							</Component>
+						</Directory>
+					</Directory>
+				</Directory>
+			</Directory>
+
+			<Directory Id="ProgramFilesFolder" >
+				<Directory Id="INSTALLLOCATION" Name="XDetails" >
+
+					<!-- Extensibility.DLL instaliram samo ako ga nema u GAC-u -->
+					<Component Id="Component_Extensibility" Guid="073046A9-1121-446E-8B99-38D7B84F40FA">
+						<File Id="File_Extensibility" Name="Extensibility.dll" DiskId="1" Vital="yes"
+							Source="..\XDetails.WixSetup\dll\Extensibility.dll"
+							/>
+						<Condition>Installed OR NOT EXTENSIBILITYDLLEXISTS</Condition>
+					</Component>
+					
+					<!-- PostSharp.DLL -->
+					<Component Id="PostSharp" Guid="2f1f4586-bec6-40e3-a060-463f1d4fb1c6" > 
+						<File Id="File_PostSharp" Name="PostSharp.dll" DiskId="1" Vital="yes"
+							Source="..\XDetails.SQL2005\bin\PostSharp.dll"
+							/>
+					</Component>
+
+					<!-- .config datoteke -->
+					<Component Id="SqlConfig" Guid="32859143-9144-46aa-BC47-BACFB61E82DF" >
+						<File Id="File_objectInfoConfig" Name="objectInfo.config" DiskId="1" Vital="yes"
+							Source="..\XDetails.SQL2005\Configuration\objectInfo.config"
+							/>
+						<File Id="File_sqlConfig" Name="sql.config" DiskId="1" Vital="yes"
+							Source="..\XDetails.SQL2005\Configuration\sql.config"
+							/>
+					</Component>
+
+					<!-- XDetails glavni DLL-ovi -->
+					<!--Source="..\XDetails.SQL2008\bin\XDetails2008.dll" za DEBUG --> 
+					<!--Source=".\XDetails2008.dll" za RELEASE nakon obfuskacije-->
+					<Component Id="XDetails2012" Guid="782b7724-0df5-4cce-90e1-70cad865bc79" >
+						<File Id="File_2012Dll" Name="XDetails2012.dll" DiskId="1" Vital="yes"
+							Source=".\XDetails2012.dll"
+							/>
+					</Component>
+
+					<Component Id="XDetails2008" Guid="db92a109-1fd7-4e95-ab00-539161564249" > 
+						<File Id="File_2008Dll" Name="XDetails2008.dll" DiskId="1" Vital="yes"
+							Source=".\XDetails2008.dll" 
+							/>
+
+						<RegistryValue Id="Db2008.rg1" Root="HKLM" Key="$(var.Addin2008_RegKey)" Name="LoadBehavior" Value="1" Type="integer" />
+						<RegistryValue Id="Db2008.rg2" Root="HKLM" Key="$(var.Addin2008_RegKey)" Name="CommandPreload" Value="1" Type="integer" />
+						<RegistryValue Id="Db2008.rg3" Root="HKLM" Key="$(var.Addin2008_RegKey)" Name="Description" Value="Copyright (c) 2010, Vedran Kesegic, www.sqlxdetails.com" Type="string" />
+						<RegistryValue Id="Db2008.rg4" Root="HKLM" Key="$(var.Addin2008_RegKey)" Name="FriendlyName" Value="SQL XDetails $(var.VersionNumber)" Type="string" />
+
+						<Class Id="$(var.Addin2008_CLSID)" Context="InprocServer32" 
+							Description="XDetails.Connect" ThreadingModel="both" ForeignServer="mscoree.dll" >
+							<ProgId Id="$(var.Addin2008_ProgID)" Description="XDetails.Connect" />
+						</Class>
+						<!--<RegistryValue Id='RegistryDLL_002' Root="HKCR" Key="CLSID\$(var.Addin2008_CLSID)\InprocServer32" Value="mscoree.dll" Type="string" Action="write" />-->
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2008_CLSID)\InprocServer32" Name="Class" Value="XDetails.Connect" Type="string" Action="write" />
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2008_CLSID)\InprocServer32" Name="Assembly" Value="XDetails2008, Version=$(var.VersionNumber), Culture=neutral, PublicKeyToken=null" Type="string" Action="write" />
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2008_CLSID)\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2008_CLSID)\InprocServer32" Name="CodeBase" Value="[#File_2008Dll]" Type="string" Action="write" />
+					</Component>
+
+					<!--Source="..\XDetails.SQL2005\bin\XDetails2005.dll" za DEBUG --> 
+					<!--Source=".\XDetails2005.dll" za RELEASE nakon obfuskacije--> 
+					<Component Id="XDetails2005" Guid="FE12EB39-5B04-46a1-9FFB-8AD73159496C"> 
+						<File Id="File_2005Dll" Name="XDetails2005.dll" DiskId="1" Vital="yes"
+							Source=".\XDetails2005.dll"
+							/>
+
+						<RegistryValue Id="Db2005.rg1" Root="HKLM" Key="$(var.Addin2005_RegKey)" Name="LoadBehavior" Value="1" Type="integer" />
+						<RegistryValue Id="Db2005.rg2" Root="HKLM" Key="$(var.Addin2005_RegKey)" Name="CommandPreload" Value="1" Type="integer" />
+						<RegistryValue Id="Db2005.rg3" Root="HKLM" Key="$(var.Addin2005_RegKey)" Name="Description" Value="Copyright (c) 2010, Vedran Kesegic, www.sqlxdetails.com" Type="string" />
+						<RegistryValue Id="Db2005.rg4" Root="HKLM" Key="$(var.Addin2005_RegKey)" Name="FriendlyName" Value="SQL XDetails $(var.VersionNumber)" Type="string" />
+
+						<Class Id="$(var.Addin2005_CLSID)" Context="InprocServer32" 
+							Description="XDetails.Connect" ThreadingModel="both" ForeignServer="mscoree.dll" >
+							<ProgId Id="$(var.Addin2005_ProgID)" Description="XDetails.Connect" />
+						</Class>
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2005_CLSID)\InprocServer32" Name="Class" Value="XDetails.Connect" Type="string" Action="write" />
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2005_CLSID)\InprocServer32" Name="Assembly" Value="XDetails2005, Version=$(var.VersionNumber), Culture=neutral, PublicKeyToken=null" Type="string" Action="write" />
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2005_CLSID)\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2005_CLSID)\InprocServer32" Name="CodeBase" Value="[#File_2005Dll]" Type="string" Action="write" />
+					</Component>
+
+					<!--Source="..\XDetails.SQL2005Express\bin\XDetails2005Express.dll" za DEBUG --> 
+					<!--Source=".\XDetails2005Express.dll" za RELEASE nakon obfuskacije--> 
+					<Component Id="XDetails2005Express" Guid="23145F52-8550-4af6-A792-C55E320C91C2"> 
+						<File Id="File_2005ExpressDll" Name="XDetails2005Express.dll" DiskId="1" Vital="yes"
+							Source=".\XDetails2005Express.dll"
+							/>
+
+						<RegistryValue Id="Db2005E.rg1" Root="HKLM" Key="$(var.Addin2005E_RegKey)" Name="LoadBehavior" Value="1" Type="integer" />
+						<RegistryValue Id="Db2005E.rg2" Root="HKLM" Key="$(var.Addin2005E_RegKey)" Name="CommandPreload" Value="1" Type="integer" />
+						<RegistryValue Id="Db2005E.rg3" Root="HKLM" Key="$(var.Addin2005E_RegKey)" Name="Description" Value="Copyright (c) 2010, Vedran Kesegic, www.sqlxdetails.com" Type="string" />
+						<RegistryValue Id="Db2005E.rg4" Root="HKLM" Key="$(var.Addin2005E_RegKey)" Name="FriendlyName" Value="SQL XDetails $(var.VersionNumber)" Type="string" />
+
+						<Class Id="$(var.Addin2005E_CLSID)" Context="InprocServer32" 
+							Description="XDetails.Connect" ThreadingModel="both" ForeignServer="mscoree.dll" >
+							<ProgId Id="$(var.Addin2005E_ProgID)" Description="XDetails.Connect" />
+						</Class>
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2005E_CLSID)\InprocServer32" Name="Class" Value="XDetails.Connect" Type="string" Action="write" />
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2005E_CLSID)\InprocServer32" Name="Assembly" Value="XDetails2005Express, Version=$(var.VersionNumber), Culture=neutral, PublicKeyToken=null" Type="string" Action="write" />
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2005E_CLSID)\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+						<RegistryValue Root="HKCR" Key="CLSID\$(var.Addin2005E_CLSID)\InprocServer32" Name="CodeBase" Value="[#File_2005ExpressDll]" Type="string" Action="write" />
+					</Component>
+
+				</Directory>
+			</Directory>
+		</Directory>
+
+		<Feature Id="Feature_Addin2012" Title="SQL XDetails for SSMS 2012" Level="3">
+			<ComponentRef Id="XDetails2012" />
+			<ComponentRef Id="SqlConfig" />
+			<ComponentRef Id="PostSharp" />
+			<ComponentRef Id="Component_Extensibility" />
+			<ComponentRef Id="Component_addin2012" />
+			<Condition Level="1">S2012</Condition>
+		</Feature>
+
+		<Feature Id="Feature_Addin2008" Title="SQL XDetails for SSMS 2008" Level="3">
+			<ComponentRef Id="XDetails2008" />
+			<ComponentRef Id="SqlConfig" />
+			<ComponentRef Id="PostSharp" />
+			<ComponentRef Id="Component_Extensibility" />
+			<!--<Condition Level="1"><![CDATA[SSMS2008REG<>""]]></Condition>-->
+			<Condition Level="1">S2008</Condition>
+		</Feature>
+
+		<Feature Id="Feature_Addin2005" Title="SQL XDetails for SSMS 2005" Level="3">
+			<ComponentRef Id="XDetails2005" /> 
+			<ComponentRef Id="SqlConfig" /> 
+			<ComponentRef Id="PostSharp" />
+			<ComponentRef Id="Component_Extensibility" />
+			<Condition Level="1">S2005</Condition>
+		</Feature>
+
+		<!--Level: 1=bit će instalirano, 3=nije odabrano za instalaciju >-->
+		<Feature Id="Feature_Addin2005Express" Title="SQL XDetails for SSMS 2005 Express" Level="3" >
+			<ComponentRef Id="XDetails2005Express" /> 
+			<ComponentRef Id="SqlConfig" /> 
+			<ComponentRef Id="PostSharp" />
+			<ComponentRef Id="Component_Extensibility" />
+			<Condition Level="1">S2005E</Condition>
+		</Feature>
+
+
+		<!-- Include a user interface - to be modified later -->
+		<UIRef Id="WixUI_FeatureTree" />
+		<UIRef Id="WixUI_ErrorProgressText" />
+		<Icon Id="Icon_SearchDb" SourceFile="..\XDetails.SQL2005\search-database.ico" />
+		<Property Id="ARPPRODUCTICON" Value="Icon_SearchDb" />
+
+		<WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+		<WixVariable Id="WixUIBannerBmp" Value="banner493x58.bmp" />
+		<WixVariable Id="WixUIDialogBmp" Value="dialog493x312.bmp" />
+
+	</Product>
+</Wix>
